@@ -1,13 +1,5 @@
-import os
-from dotenv import load_dotenv
-from graphql_query import Operation, Query, Argument, Field
-from gql import Client, gql
-from gql.transport.aiohttp import AIOHTTPTransport
 import argparse
-
-load_dotenv()
-
-apiKey = os.getenv('START_GG_API_KEY')
+from queries import getEventId, getSets, getSetScore
 
 parser = argparse.ArgumentParser(
     prog='Start.gg Bracket Win Gatherer',
@@ -20,92 +12,60 @@ print("Bracket URL: {}".format(args.e))
 #bracketUrl = 'https://www.start.gg/tournament/mtl-underground-fridays-30/event/street-fighter-6-pc'
 bracketUrl = args.e
 
-transport = AIOHTTPTransport(
-    url="https://api.start.gg/gql/alpha",
-    headers={'Authorization':'Bearer {}'.format(apiKey)}
-)
-
 #get the slug from the bracket URL
 slug = bracketUrl.replace('https://www.start.gg/', '')
 
-#get an event ID from an event link
-eventId = Query(
-    name="event",
-    arguments=[Argument(name="slug", value='"{}"'.format(slug))],
-    fields=["id", "name"]
-)
-
-operation = Operation(
-    type="query",
-    name="getEventid",
-    queries=[eventId]
-)
-
-#print(operation.render())
-
-client = Client(transport=transport, fetch_schema_from_transport=False)
-
-query = gql(operation.render())
-result = client.execute(query)
-print(result)
-eventNum = result['event']['id']
-print("Event ID is {}".format(eventNum))
+event = getEventId(slug)
+eventID = event['event']['id']
+print(event['event']['id'])
 
 #get all sets for an event ID
-queryAllSets = Query(
-    name="event",
-    arguments=[
-        Argument(name="id", value=eventNum)
-    ],
-    fields=["id",
-        "name", 
-        Field(
-            name="sets",
-            arguments=[
-                Argument(name='page', value=1),
-                Argument(name='perPage', value=100),
-                Argument(name='sortType', value='STANDARD')
-            ],
-            fields=[
-                Field(
-                    name="pageInfo",
-                    fields=["total"]
-                ),
-                Field(
-                    name='nodes',
-                    fields=[
-                        "id",
-                        Field(
-                            name='slots',
-                            fields=[
-                                "id",
-                                Field(
-                                    name='entrant',
-                                    fields=[
-                                        "id",
-                                        "name"
-                                    ]
-                                )
-                            ]
-                        )
-                    ]
-                )
-            ]
-        )
-    ]
-)
+allSets = getSets(eventID)
 
-operation = Operation(
-    type="query",
-    name="EventSets",
-    queries=[queryAllSets]
-)
+players = {}
+setDict = {}
 
-#print(operation.render())
+for fSet in allSets['event']['sets']['nodes']:
+    #print(fSet)
+    #populate the dictionary of all sets in the event, where the set ID is the key and the set data is the value
+    setDict[fSet['id']] = fSet['slots']
+    print(setDict[fSet['id']])
+    for entrant in fSet['slots']:
+        if entrant['entrant']['id'] not in players:
+            #add entry to players dictionary, where player ID is the key and name is the value
+            players[str(entrant['entrant']['id'])] = entrant['entrant']['name']
+            
+#Create and populate a dictionary of player scores, where the key is their start.gg id
+dictPlayerScores = {}
 
-query = gql(operation.render())
-result = client.execute(query)
-#print(result)
-
-for fSet in result['event']['sets']['nodes']:
-    print(fSet)
+for player in players:
+    #print(players[player])
+    dictPlayerScores[player] = 0
+    
+for _set in setDict:
+    #id is the id for the player within the set, entrant id is the id for the player in start.gg (idk why this shit is different)
+    setPlayers = {
+        setDict[_set][0]['id'] : setDict[_set][0]['entrant']['id'],
+        setDict[_set][1]['id'] : setDict[_set][1]['entrant']['id']
+    }
+    
+    result = getSetScore(_set)
+    player1 = ( result['set']['slots'][0]['id'], result['set']['slots'][0]['standing']['stats']['score']['value'] )
+    player2 = ( result['set']['slots'][1]['id'], result['set']['slots'][1]['standing']['stats']['score']['value'] )
+    
+    #Check if win count is null or -1 (-1 is DQ, null means their opponent DQed)
+    if player1[1] is None or player1[1] == -1:
+        playerList = list(player1)
+        playerList[1] = 0
+        player1 = tuple(playerList)
+    #Same check for player 2
+    if player2[1] is None or player2[1] == -1:
+        playerList = list(player2)
+        playerList[1] = 0
+        player2 = tuple(playerList)
+        
+    dictPlayerScores[str(setPlayers[player1[0]])] += player1[1]
+    dictPlayerScores[str(setPlayers[player2[0]])] += player2[1]
+    
+for playerID in dictPlayerScores:
+    print('{} : {}'.format(players[playerID], dictPlayerScores[playerID]))
