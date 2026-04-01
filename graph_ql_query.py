@@ -1,4 +1,5 @@
 import argparse
+from halo import Halo
 from queries import getEventId, getSets, getSetScore
 
 parser = argparse.ArgumentParser(
@@ -25,6 +26,8 @@ allSets = getSets(eventID)
 players = {}
 setDict = {}
 
+spinner = Halo(text='Getting all sets from the event...', spinner='dots')
+spinner.start()
 for fSet in allSets['event']['sets']['nodes']:
     #print(fSet)
     #populate the dictionary of all sets in the event, where the set ID is the key and the set data is the value
@@ -35,6 +38,7 @@ for fSet in allSets['event']['sets']['nodes']:
             #add entry to players dictionary, where player ID is the key and name is the value
             players[str(entrant['entrant']['id'])] = entrant['entrant']['name']
             
+spinner.stop()
 #Create and populate a dictionary of player scores, where the key is their start.gg id
 dictPlayerScores = {}
 
@@ -42,6 +46,9 @@ for player in players:
     #print(players[player])
     dictPlayerScores[player] = 0
     
+spinner = Halo(text='Summing set scores...', spinner='dots')
+spinner.start()
+
 for _set in setDict:
     #id is the id for the player within the set, entrant id is the id for the player in start.gg (idk why this shit is different)
     setPlayers = {
@@ -66,6 +73,8 @@ for _set in setDict:
         
     dictPlayerScores[str(setPlayers[player1[0]])] += player1[1]
     dictPlayerScores[str(setPlayers[player2[0]])] += player2[1]
-    
+
+spinner.stop()
+
 for playerID in dictPlayerScores:
     print('{} : {}'.format(players[playerID], dictPlayerScores[playerID]))
