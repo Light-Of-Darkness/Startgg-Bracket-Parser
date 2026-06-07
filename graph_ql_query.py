@@ -1,17 +1,19 @@
 import argparse
 from halo import Halo
 from queries import getEventId, getSets, getSetScore
+import csv
 
 parser = argparse.ArgumentParser(
     prog='Start.gg Bracket Win Gatherer',
     description='Gets number of wins per registered player in a start.gg bracket'
 )
 
-parser.add_argument('-e')
+parser.add_argument('url')
+parser.add_argument('-o')
 args = parser.parse_args()
-print("Bracket URL: {}".format(args.e))
+print("Bracket URL: {}".format(args.url))
 #bracketUrl = 'https://www.start.gg/tournament/mtl-underground-fridays-30/event/street-fighter-6-pc'
-bracketUrl = args.e
+bracketUrl = args.url
 
 #get the slug from the bracket URL
 slug = bracketUrl.replace('https://www.start.gg/', '')
@@ -87,5 +89,14 @@ for _set in setDict:
 spinner.stop()
 
 print('Total games won')
+totalData = []
 for playerID in dictPlayerScores:
     print('{} : {}'.format(players[playerID], dictPlayerScores[playerID]))
+    totalData.append({'tag':players[playerID], 'points': dictPlayerScores[playerID]})
+    if args.o:
+        with open(args.o, 'w', newline='') as csvfile:
+            fieldnames = ['tag', 'points']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(totalData)
+        
