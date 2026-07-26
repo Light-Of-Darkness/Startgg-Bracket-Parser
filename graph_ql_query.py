@@ -36,7 +36,7 @@ for fSet in allSets['event']['sets']['nodes']:
     for entrant in fSet['slots']:
         if entrant['entrant']['id'] not in players:
             #add entry to players dictionary, where player ID is the key and name is the value
-            players[str(entrant['entrant']['id'])] = entrant['entrant']['name']
+            players[str(entrant['entrant']['id'])] = entrant['entrant']['name'].encode("ascii", errors="ignore").decode()
             
 #Create and populate a dictionary of player scores, where the key is their start.gg id
 dictPlayerScores = {}
